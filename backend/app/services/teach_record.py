@@ -5,6 +5,7 @@ from typing import Any
 
 from app.services.base import BaseModuleService
 from app.services.cross_module import require_entity
+from app.services.evidence_access import evidence_service
 
 
 class TeachRecordService(BaseModuleService):
@@ -38,4 +39,16 @@ class TeachRecordService(BaseModuleService):
             if entry.get("status") in ("已归档", "已注销"):
                 return None, f"{self.ENTITY} {entry_id} 已经{entry.get('status')}，不可退回补正"
 
-        return super().run_action(entry_id, action)
+        result, message = super().run_action(entry_id, action)
+
+        # 档案资格变化（注销）：失效在用证据授权、阻断受理回执并生成外评补件待办。
+        if action == "注销档案" and result is not None:
+            supplements = evidence_service.handle_record_revoked(entry_id)
+            if supplements:
+                nos = "、".join(item["补件编号"] for item in supplements)
+                message = (
+                    f"{message}；关联外评凭证已失效，已生成外评补件待办：{nos}"
+                )
+            else:
+                message = f"{message}；当前无关联外评凭证受影响"
+        return result, message

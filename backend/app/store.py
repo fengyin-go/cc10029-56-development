@@ -8,6 +8,14 @@ from typing import Any
 
 from app.seed import SEED_ROWS
 
+# 领域服务的内部台账（凭证、回执、补件、审计），不计入业务模块清单与运营概览。
+INTERNAL_TABLES = {
+    "evidence_grant",
+    "evidence_ticket",
+    "eval_supplement",
+    "evidence_access_log",
+}
+
 
 class Store:
     def __init__(self) -> None:
@@ -16,7 +24,7 @@ class Store:
         }
 
     def module_names(self) -> list[str]:
-        return sorted(self._tables)
+        return sorted(name for name in self._tables if name not in INTERNAL_TABLES)
 
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])

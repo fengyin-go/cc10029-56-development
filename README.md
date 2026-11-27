@@ -11,12 +11,15 @@
 .
 ├── frontend/                 Vue 3 + Vite + TypeScript 前端
 │   ├── src/views/WorkbenchView.vue|tsx  全部模块共享工作台
+│   ├── src/views/EvidenceView.vue       外评证据凭证控制台
 │   ├── src/data/modules.ts              18个业务模块配置
 │   ├── src/api/              统一请求封装
 │   └── vite.config.ts        dev server 配置（open: false）
 ├── backend/                  FastAPI（Python） 后端
 │   ├── app/routers/resource.py  通用查询/导出/登记/动作接口
+│   ├── app/routers/evidence.py  外评证据授权/验票/补件专用接口
 │   ├── app/services/<key>.py    每个模块独立领域逻辑
+│   ├── app/services/evidence_access.py  受控凭证领域服务
 │   ├── app/services/base.py     共享服务骨架
 │   └── app/store.py          内存数据仓库与示例数据
 ├── .gitignore
@@ -70,6 +73,27 @@ npm run dev
 | 教学资源申请 | `resource_apply` | 资源申请 | 申请资源、用途说明、使用时间 |
 | 质量简报 | `quality_report` | 质量简报 | 覆盖学期、教学质量概况、突出问题 |
 | 教材选用 | `textbook_select` | 选用单 | 教材名称、主编、出版社 |
+
+## 外评证据受控凭证
+
+外部评估收件人需要核对教学档案时，不直接开放档案模块，而是由资料员按评估报告发放
+**只读授权凭证**（`/api/evidence`，前端「外评证据凭证」菜单）：
+
+1. **授权入口**：凭证绑定「评估报告 + 教学档案 + 外部收件人」，权限固定只读；
+   档案须已归档，已注销档案此后不得再发放新授权。
+2. **双重归属校验**：持凭证读取或验票时同时校验报告归属与档案归属。
+   同一评审人处理 R-25、R-26 两份报告时，R-26 的凭证不能打开 R-25 的证据，
+   每次放行/拒绝都写入访问审计。
+3. **材料验票**：归属校验通过后出具受理回执，评审员据此在报告中填写档案引用。
+4. **资格变化联动**：档案执行「注销档案」时，在用凭证自动失效、相关受理回执阻断，
+   并生成「外评补件待办」。
+5. **接收报告校验**：接收报告前先做凭证体检——原授权仍能完成已受理引用则放行；
+   存在阻断/待补件则拦截，须用替代档案取得新凭证、新回执并办结补件。
+6. **历史可追溯、不可跨报告沿用**：已签收或已失效的凭证都保留原编号，可查到当时
+   发给谁、实际用了哪件档案及发放时点快照；补件只能用同报告的新授予办结。
+
+凭证、回执、补件分别存放在内存表 `evidence_grant`、`evidence_ticket`、
+`eval_supplement`（另含 `evidence_access_log` 审计表），首次调用时按需创建。
 
 ## 约定
 

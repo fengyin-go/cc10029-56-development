@@ -29,3 +29,23 @@ class EntryPayload(BaseModel):
 class ActionPayload(BaseModel):
     action: str
     remark: str | None = None
+
+
+class GrantIssuePayload(BaseModel):
+    """按评估报告发放证据授权凭证。"""
+    eval_id: int
+    record_id: int
+    recipient: str
+    issuer: str
+    purpose: str | None = None
+
+
+class EvidenceScopePayload(BaseModel):
+    """持凭证读取档案或验票时的归属参数。"""
+    eval_id: int
+    record_id: int
+
+
+class SupplementCompletePayload(BaseModel):
+    """用替代凭证办结外评补件。"""
+    new_grant_no: str

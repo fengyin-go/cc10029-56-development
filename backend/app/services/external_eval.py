@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.base import BaseModuleService
-from app.store import store
+from app.services.evidence_access import evidence_service
 
 
 class ExternalEvalService(BaseModuleService):
@@ -27,10 +27,27 @@ class ExternalEvalService(BaseModuleService):
         if action == "接收报告":
             if entry.get("status") not in ("待接收", "草稿"):
                 return None, f"{self.ENTITY} {entry_id} 当前状态为'{entry.get('status')}'，不可接收"
+            # 接收前凭证体检：档案注销与授权使用冲突时，先判断原授权能否
+            # 完成已受理引用；被阻断则等待替代证明和新的授予。
+            diagnosis = evidence_service.diagnose_receive(entry_id)
+            if not diagnosis["可接收"]:
+                return None, (
+                    f"{self.ENTITY} {entry_id} 暂不可接收：{diagnosis['提示']}"
+                )
 
         # 转办整改：必须先接收
         if action == "转办整改":
             if entry.get("status") != "已接收":
                 return None, f"{self.ENTITY} {entry_id} 必须先接收报告，才能转办"
 
-        return super().run_action(entry_id, action)
+        result, message = super().run_action(entry_id, action)
+        if action == "接收报告" and result is not None:
+            # 签收外发凭证：回执转入已引用、凭证记录实际签收，历史编号保持可查。
+            evidence_service.confirm_report_received(entry_id)
+        return result, message
+
+    def receive_diagnosis(self, entry_id: int) -> dict[str, Any] | None:
+        """供路由调用的接收前凭证体检入口。"""
+        if self.get_entry(entry_id) is None:
+            return None
+        return evidence_service.diagnose_receive(entry_id)
